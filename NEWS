@@ -216,6 +216,9 @@ with all sufficient information, see the ChangeLog file.
 * lib/uri
   * support RFC 3986. [Feature #2542]
 
+* CMath
+  * CMath.log now raise ArgumentError when more than 2 arguments are passed.
+
 * GServer
   * GServer is extracted to gserver gem. It's unmaintain code.
 
