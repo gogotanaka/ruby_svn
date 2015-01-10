@@ -19,6 +19,10 @@ with all sufficient information, see the ChangeLog file.
 
 === Stdlib updates (outstanding ones only)
 
+* lib/set.rb
+  * New methods:
+    * Set#power returns set of all subsets of +self+.
+
 === Stdlib compatibility issues (excluding feature bug fixes)
 
 * lib/webrick/utils.rb
