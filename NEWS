@@ -1,0 +1,36 @@
+# -*- rdoc -*-
+
+= NEWS for Ruby 2.3.0
+
+This document is a list of user visible feature changes made between
+releases except for bug fixes.
+
+Note that each entry is kept so brief that no reason behind or
+reference information is supplied with.  For a full list of changes
+with all sufficient information, see the ChangeLog file.
+
+== Changes since the 2.2.0 release
+
+=== Language changes
+
+=== Core classes updates (outstanding ones only)
+
+=== Core classes compatibility issues (excluding feature bug fixes)
+
+=== Stdlib updates (outstanding ones only)
+
+=== Stdlib compatibility issues (excluding feature bug fixes)
+
+* lib/webrick/utils.rb
+ * removed unused argument. https://github.com/ruby/ruby/pull/356
+
+* lib/drb/drb.rb
+ * removed unused argument. https://github.com/ruby/ruby/pull/515
+
+=== Built-in global variables compatibility issues
+
+=== C API updates
+
+=== Build system updates
+
+=== Implementation changes
