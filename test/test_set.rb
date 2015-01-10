@@ -570,6 +570,14 @@ class TC_Set < Test::Unit::TestCase
     }
   end
 
+  def test_power
+    assert_equal(Set[1, 2].power, Set[Set[], Set[1], Set[2], Set[1, 2]])
+    assert_equal(
+      Set[1, 2, 3].power,
+      Set[Set[], Set[1], Set[2], Set[3], Set[1, 2], Set[2, 3], Set[3, 1], Set[1, 2, 3]]
+    )
+  end
+
   def test_taintness
     orig = set = Set[1,2,3]
     assert_equal false, set.tainted?
