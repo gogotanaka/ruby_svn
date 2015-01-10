@@ -513,6 +513,22 @@ class Set
     end
   end
 
+  # Returns set of all subsets of +self+.
+  #
+  # e.g.:
+  #
+  #   require 'set'
+  #   set = Set[1, 2].power
+  #   p set     # => #<Set: {#<Set: {}>,
+  #             #            #<Set: {1}>,
+  #             #            #<Set: {2}>,
+  #             #            #<Set: {1, 2}>}>
+  def power
+    (0 .. 2 ** length - 1).map { |n|
+      select.with_index { |_, i| (n >> i) & 1 == 1 }.to_set
+    }.to_set
+  end
+
   InspectKey = :__inspect_key__         # :nodoc:
 
   # Returns a string containing a human-readable representation of the
