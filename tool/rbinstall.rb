@@ -19,6 +19,11 @@ require 'optparse'
 require 'optparse/shellwords'
 require 'ostruct'
 require 'rubygems'
+begin
+  require "zlib"
+rescue LoadError
+  $" << "zlib.rb"
+end
 
 STDOUT.sync = true
 File.umask(0)
@@ -158,11 +163,11 @@ def install(src, dest, options = {})
   super(src, d, options)
   srcs = Array(src)
   if strip
-    d = srcs.map {|src| File.join(d, File.basename(src))} if $made_dirs[dest]
+    d = srcs.map {|s| File.join(d, File.basename(s))} if $made_dirs[dest]
     strip_file(d)
   end
   if $installed_list
-    dest = srcs.map {|src| File.join(dest, File.basename(src))} if $made_dirs[dest]
+    dest = srcs.map {|s| File.join(dest, File.basename(s))} if $made_dirs[dest]
     $installed_list.puts dest
   end
 end
@@ -275,6 +280,12 @@ def with_destdir(dir)
   $destdir + dir
 end
 
+def without_destdir(dir)
+  return dir if !$destdir or $destdir.empty? or !dir.start_with?($destdir)
+  dir = dir.sub(/\A\w:/, '') if File::PATH_SEPARATOR == ';'
+  dir[$destdir.size..-1]
+end
+
 def prepare(mesg, basedir, subdirs=nil)
   return unless basedir
   case
@@ -324,8 +335,6 @@ enable_shared = CONFIG["ENABLE_SHARED"] == 'yes'
 dll = CONFIG["LIBRUBY_SO", enable_shared]
 lib = CONFIG["LIBRUBY", true]
 arc = CONFIG["LIBRUBY_A", true]
-major = CONFIG["MAJOR", true]
-minor = CONFIG["MINOR", true]
 load_relative = configure_args.include?("--enable-load-relative")
 
 install?(:local, :arch, :bin, :'bin-arch') do
@@ -586,7 +595,8 @@ module RbInstall
         when "ext"
           prefix = "#{$extout}/#{CONFIG['arch']}/"
           base = "#{prefix}#{relative_base}"
-          Dir.glob("#{base}{.so,/**/*.so}").collect do |built_library|
+          dlext = CONFIG['DLEXT']
+          Dir.glob("#{base}{.#{dlext},/**/*.#{dlext}}").collect do |built_library|
             remove_prefix(prefix, built_library)
           end
         when "lib"
@@ -650,6 +660,27 @@ end
       end
     end
   end
+
+  class UnpackedInstaller < Gem::Installer
+    module DirPackage
+      def extract_files(destination_dir, pattern = "*")
+        path = File.dirname(@gem.path)
+        return if path == destination_dir
+        install_recursive(path, without_destdir(destination_dir),
+                          :glob => pattern,
+                          :no_install => "*.gemspec",
+                          :mode => $data_mode)
+      end
+    end
+
+    def initialize(spec, *options)
+      super(spec.loaded_from, *options)
+      @package.extend(DirPackage).spec = spec
+    end
+
+    def write_cache_file
+    end
+  end
 end
 # :startdoc:
 
@@ -689,7 +720,6 @@ install?(:ext, :comm, :gem) do
 
   gems.sort.each do |name, specgen|
     gemspec   = specgen.gemspec
-    base_dir  = specgen.src.sub(/\A#{Regexp.escape(srcdir)}\//, "")
     full_name = "#{gemspec.name}-#{gemspec.version}"
 
     puts "#{" "*30}#{gemspec.name} #{gemspec.version}"
@@ -709,25 +739,43 @@ install?(:ext, :comm, :gem) do
 end
 
 install?(:ext, :comm, :gem) do
-  begin
-    require "zlib"
-  rescue LoadError
+  gem_dir = Gem.default_dir
+  directories = Gem.ensure_gem_subdirectories(gem_dir, :mode => $dir_mode)
+  prepare "bundle gems", gem_dir, directories
+  install_dir = with_destdir(gem_dir)
+  installed_gems = {}
+  Gem::Specification.each_spec([srcdir+'/gems/*']) do |spec|
+    ins = RbInstall::UnpackedInstaller.new(spec,
+                                           :install_dir => install_dir,
+                                           :ignore_dependencies => true)
+    puts "#{" "*30}#{spec.name} #{spec.version}"
+    ins.install
+    installed_gems[spec.full_name] = true
   end
+  installed_gems, gems = Dir.glob(srcdir+'/gems/*.gem').partition {|gem| installed_gems.key?(File.basename(gem, '.gem'))}
+  unless installed_gems.empty?
+    install installed_gems, gem_dir+"/cache"
+  end
+  next if gems.empty?
   if defined?(Zlib)
-    require 'pathname'
-    gem_dir = Gem.default_dir
-    directories = Gem.ensure_gem_subdirectories(gem_dir, :mode => $dir_mode)
-    prepare "bundle gems", gem_dir, directories
-    Dir.glob(srcdir+'/gems/*.gem').each do |gem|
-      Gem.install gem, Gem::Requirement.default, :install_dir => with_destdir(gem_dir), :domain => :local, :ignore_dependencies => true
-      gemname = Pathname(gem).basename
+    options = {
+      :install_dir => install_dir,
+      :domain => :local,
+      :ignore_dependencies => true,
+      :dir_mode => $dir_mode,
+      :data_mode => $data_mode,
+      :prog_mode => $prog_mode,
+    }
+    gems.each do |gem|
+      Gem.install(gem, Gem::Requirement.default, options)
+      gemname = File.basename(gem)
       puts "#{" "*30}#{gemname}"
     end
     # fix directory permissions
     # TODO: Gem.install should accept :dir_mode option or something
-    File.chmod($dir_mode, *Dir.glob(with_destdir(Gem.dir)+"/**/"))
+    File.chmod($dir_mode, *Dir.glob(install_dir+"/**/"))
     # fix .gemspec permissions
-    File.chmod($data_mode, *Dir.glob(with_destdir(Gem.dir)+"/specifications/*.gemspec"))
+    File.chmod($data_mode, *Dir.glob(install_dir+"/specifications/*.gemspec"))
   else
     puts "skip installing bundle gems because of lacking zlib"
   end

@@ -2,7 +2,7 @@
 
   array.c -
 
-  $Author: ayumin $
+  $Author: nobu $
   created at: Fri Aug  6 09:46:12 JST 1993
 
   Copyright (C) 1993-2007 Yukihiro Matsumoto
@@ -1787,9 +1787,9 @@ ary_enum_length(VALUE ary, VALUE args, VALUE eobj)
  *     ary.each                   -> Enumerator
  *
  *  Calls the given block once for each element in +self+, passing that element
- *  as a parameter.
+ *  as a parameter.  Returns the array itself.
  *
- *  An Enumerator is returned if no block is given.
+ *  If no block is given, an Enumerator is returned.
  *
  *     a = [ "a", "b", "c" ]
  *     a.each {|x| print x, " -- " }
@@ -2593,8 +2593,8 @@ static VALUE
 rb_ary_bsearch(VALUE ary)
 {
     long low = 0, high = RARRAY_LEN(ary), mid;
-    int smaller = 0, satisfied = 0;
-    VALUE v, val;
+    int smaller = 0;
+    VALUE v, val, satisfied = Qnil;
 
     RETURN_ENUMERATOR(ary, 0, 0);
     while (low < high) {
@@ -2602,11 +2602,11 @@ rb_ary_bsearch(VALUE ary)
 	val = rb_ary_entry(ary, mid);
 	v = rb_yield(val);
 	if (FIXNUM_P(v)) {
-	    if (FIX2INT(v) == 0) return val;
-	    smaller = FIX2INT(v) < 0;
+	    if (v == INT2FIX(0)) return val;
+	    smaller = (SIGNED_VALUE)v < 0; /* Fixnum preserves its sign-bit */
 	}
 	else if (v == Qtrue) {
-	    satisfied = 1;
+	    satisfied = val;
 	    smaller = 1;
 	}
 	else if (v == Qfalse || v == Qnil) {
@@ -2614,16 +2614,16 @@ rb_ary_bsearch(VALUE ary)
 	}
 	else if (rb_obj_is_kind_of(v, rb_cNumeric)) {
 	    const VALUE zero = INT2FIX(0);
-	    switch (rb_cmpint(rb_funcallv(v, id_cmp, 1, &zero), v, INT2FIX(0))) {
-		case 0: return val;
-		case 1: smaller = 1; break;
-		case -1: smaller = 0;
+	    switch (rb_cmpint(rb_funcallv(v, id_cmp, 1, &zero), v, zero)) {
+	      case 0: return val;
+	      case 1: smaller = 1; break;
+	      case -1: smaller = 0;
 	    }
 	}
 	else {
-	    rb_raise(rb_eTypeError, "wrong argument type %s"
-		" (must be numeric, true, false or nil)",
-		rb_obj_classname(v));
+	    rb_raise(rb_eTypeError, "wrong argument type %"PRIsVALUE
+		     " (must be numeric, true, false or nil)",
+		     rb_obj_class(v));
 	}
 	if (smaller) {
 	    high = mid;
@@ -2632,9 +2632,7 @@ rb_ary_bsearch(VALUE ary)
 	    low = mid + 1;
 	}
     }
-    if (low == RARRAY_LEN(ary)) return Qnil;
-    if (!satisfied) return Qnil;
-    return rb_ary_entry(ary, low);
+    return satisfied;
 }
 
 
@@ -2824,6 +2822,48 @@ rb_ary_select(VALUE ary)
     return result;
 }
 
+struct select_bang_arg {
+    VALUE ary;
+    long len[2];
+};
+
+static VALUE
+select_bang_i(VALUE a)
+{
+    volatile struct select_bang_arg *arg = (void *)a;
+    VALUE ary = arg->ary;
+    long i1, i2;
+
+    for (i1 = i2 = 0; i1 < RARRAY_LEN(ary); arg->len[0] = ++i1) {
+	VALUE v = RARRAY_AREF(ary, i1);
+	if (!RTEST(rb_yield(v))) continue;
+	if (i1 != i2) {
+	    rb_ary_store(ary, i2, v);
+	}
+	arg->len[1] = ++i2;
+    }
+    return (i1 == i2) ? Qnil : ary;
+}
+
+static VALUE
+select_bang_ensure(VALUE a)
+{
+    volatile struct select_bang_arg *arg = (void *)a;
+    VALUE ary = arg->ary;
+    long len = RARRAY_LEN(ary);
+    long i1 = arg->len[0], i2 = arg->len[1];
+
+    if (i2 < i1) {
+	if (i1 < len) {
+	    RARRAY_PTR_USE(ary, ptr, {
+		    MEMMOVE(ptr + i2, ptr + i1, VALUE, len - i1);
+		});
+	}
+	ARY_SET_LEN(ary, len - i1 + i2);
+    }
+    return ary;
+}
+
 /*
  *  call-seq:
  *     ary.select!  {|item| block } -> ary or nil
@@ -2831,6 +2871,8 @@ rb_ary_select(VALUE ary)
  *
  *  Invokes the given block passing in successive elements from +self+,
  *  deleting elements for which the block returns a +false+ value.
+ *
+ *  The array may not be changed instantly every time the block is called.
  *
  *  If changes were made, it will return +self+, otherwise it returns +nil+.
  *
@@ -2843,23 +2885,14 @@ rb_ary_select(VALUE ary)
 static VALUE
 rb_ary_select_bang(VALUE ary)
 {
-    long i1, i2;
+    struct select_bang_arg args;
 
     RETURN_SIZED_ENUMERATOR(ary, 0, 0, ary_enum_length);
     rb_ary_modify(ary);
-    for (i1 = i2 = 0; i1 < RARRAY_LEN(ary); i1++) {
-	VALUE v = RARRAY_AREF(ary, i1);
-	if (!RTEST(rb_yield(v))) continue;
-	if (i1 != i2) {
-	    rb_ary_store(ary, i2, v);
-	}
-	i2++;
-    }
 
-    if (i1 == i2) return Qnil;
-    if (i2 < i1)
-	ARY_SET_LEN(ary, i2);
-    return ary;
+    args.ary = ary;
+    args.len[0] = args.len[1] = 0;
+    return rb_ensure(select_bang_i, (VALUE)&args, select_bang_ensure, (VALUE)&args);
 }
 
 /*
@@ -3102,23 +3135,32 @@ ary_reject(VALUE orig, VALUE result)
 }
 
 static VALUE
+reject_bang_i(VALUE a)
+{
+    volatile struct select_bang_arg *arg = (void *)a;
+    VALUE ary = arg->ary;
+    long i1, i2;
+
+    for (i1 = i2 = 0; i1 < RARRAY_LEN(ary); arg->len[0] = ++i1) {
+	VALUE v = RARRAY_AREF(ary, i1);
+	if (RTEST(rb_yield(v))) continue;
+	if (i1 != i2) {
+	    rb_ary_store(ary, i2, v);
+	}
+	arg->len[1] = ++i2;
+    }
+    return (i1 == i2) ? Qnil : ary;
+}
+
+static VALUE
 ary_reject_bang(VALUE ary)
 {
-    long i;
-    VALUE result = Qnil;
+    struct select_bang_arg args;
 
     rb_ary_modify_check(ary);
-    for (i = 0; i < RARRAY_LEN(ary); ) {
-	VALUE v = RARRAY_AREF(ary, i);
-	if (RTEST(rb_yield(v))) {
-	    rb_ary_delete_at(ary, i);
-	    result = ary;
-	}
-	else {
-	    i++;
-	}
-    }
-    return result;
+    args.ary = ary;
+    args.len[0] = args.len[1] = 0;
+    return rb_ensure(reject_bang_i, (VALUE)&args, select_bang_ensure, (VALUE)&args);
 }
 
 /*
@@ -3129,8 +3171,7 @@ ary_reject_bang(VALUE ary)
  *  Equivalent to Array#delete_if, deleting elements from +self+ for which the
  *  block evaluates to +true+, but returns +nil+ if no changes were made.
  *
- *  The array is changed instantly every time the block is called, not after
- *  the iteration is over.
+ *  The array may not be changed instantly every time the block is called.
  *
  *  See also Enumerable#reject and Array#delete_if.
  *

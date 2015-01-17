@@ -47,7 +47,7 @@ rescue VCS::NotFoundError => e
   abort "#{File.basename(Program)}: #{e.message}" unless @suppress_not_found
 else
   begin
-    last, changed, modified = vcs.get_revisions(ARGV.shift)
+    last, changed, modified, branch = vcs.get_revisions(ARGV.shift)
   rescue => e
     abort "#{File.basename(Program)}: #{e.message}" unless @suppress_not_found
     exit false
@@ -58,7 +58,13 @@ case @output
 when :changed, nil
   puts changed
 when :revision_h
-  puts "#define RUBY_REVISION #{changed.to_i}"
+  puts "#define RUBY_REVISION #{changed || 0}"
+  if branch
+    e = '..'
+    limit = 16
+    name = branch.sub(/\A(.{#{limit-e.size}}).{#{e.size+1},}/o) {$1+e}
+    puts "#define RUBY_BRANCH_NAME #{name.dump}"
+  end
 when :doxygen
   puts "r#{changed}/r#{last}"
 when :modified

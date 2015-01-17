@@ -2,7 +2,7 @@
 
   range.c -
 
-  $Author: akr $
+  $Author: nobu $
   created at: Thu Aug 19 17:46:47 JST 1993
 
   Copyright (C) 1993-2007 Yukihiro Matsumoto
@@ -570,8 +570,8 @@ is_integer_p(VALUE v)
 static VALUE
 range_bsearch(VALUE range)
 {
-    VALUE beg, end;
-    int smaller, satisfied = 0;
+    VALUE beg, end, satisfied = Qnil;
+    int smaller;
 
     /* Implementation notes:
      * Floats are handled by mapping them to 64 bits integers.
@@ -587,15 +587,16 @@ range_bsearch(VALUE range)
      * (-1...0.0).bsearch to yield -0.0.
      */
 
-#define BSEARCH_CHECK(val) \
+#define BSEARCH_CHECK(expr) \
     do { \
+	VALUE val = (expr); \
 	VALUE v = rb_yield(val); \
 	if (FIXNUM_P(v)) { \
-	    if (FIX2INT(v) == 0) return val; \
-	    smaller = FIX2INT(v) < 0; \
+	    if (v == INT2FIX(0)) return val; \
+	    smaller = (SIGNED_VALUE)v < 0; \
 	} \
 	else if (v == Qtrue) { \
-	    satisfied = 1; \
+	    satisfied = val; \
 	    smaller = 1; \
 	} \
 	else if (v == Qfalse || v == Qnil) { \
@@ -607,9 +608,9 @@ range_bsearch(VALUE range)
 	    smaller = cmp < 0; \
 	} \
 	else { \
-	    rb_raise(rb_eTypeError, "wrong argument type %s" \
-		" (must be numeric, true, false or nil)", \
-		rb_obj_classname(v)); \
+	    rb_raise(rb_eTypeError, "wrong argument type %"PRIsVALUE \
+		     " (must be numeric, true, false or nil)", \
+		     rb_obj_class(v)); \
 	} \
     } while (0)
 
@@ -633,8 +634,7 @@ range_bsearch(VALUE range)
 	    BSEARCH_CHECK(conv(low)); \
 	    if (!smaller) return Qnil; \
 	} \
-	if (!satisfied) return Qnil; \
-	return conv(low); \
+	return satisfied; \
     } while (0)
 
 
@@ -677,8 +677,7 @@ range_bsearch(VALUE range)
 	    BSEARCH_CHECK(low);
 	    if (!smaller) return Qnil;
 	}
-	if (!satisfied) return Qnil;
-	return low;
+	return satisfied;
     }
     else {
 	rb_raise(rb_eTypeError, "can't do binary search for %s", rb_obj_classname(beg));

@@ -2,7 +2,7 @@
 
   vm_core.h -
 
-  $Author: normal $
+  $Author: ko1 $
   created at: 04/01/01 19:41:38 JST
 
   Copyright (C) 2004-2007 Koichi Sasada
@@ -902,7 +902,7 @@ typedef rb_control_frame_t *
 #define VM_EP_LEP_P(ep)     VM_ENVVAL_BLOCK_PTR_P((ep)[0])
 
 VALUE *rb_vm_ep_local_ep(VALUE *ep);
-rb_block_t *rb_vm_control_frame_block_ptr(rb_control_frame_t *cfp);
+rb_block_t *rb_vm_control_frame_block_ptr(const rb_control_frame_t *cfp);
 
 #define RUBY_VM_PREVIOUS_CONTROL_FRAME(cfp) ((cfp)+1)
 #define RUBY_VM_NEXT_CONTROL_FRAME(cfp) ((cfp)-1)

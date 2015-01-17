@@ -2,7 +2,8 @@ require 'mkmf'
 
 # :stopdoc:
 
-if ! enable_config('bundled-libffi', false)
+bundle = enable_config('bundled-libffi')
+if ! bundle
   dir_config 'libffi'
 
   pkg_config("libffi") and
@@ -16,7 +17,8 @@ if ! enable_config('bundled-libffi', false)
   end and (have_library('ffi') || have_library('libffi'))
 end or
 begin
-  ver = Dir.glob("#{$srcdir}/libffi-*/")
+  ver = bundle != false &&
+        Dir.glob("#{$srcdir}/libffi-*/")
         .map {|n| File.basename(n)}
         .max_by {|n| n.scan(/\d+/).map(&:to_i)}
   unless ver
@@ -46,6 +48,9 @@ begin
   libffi.ldflags = RbConfig.expand("$(LDFLAGS) #{libpathflag([relative_from($topdir, "..")])} #{$LIBRUBYARG}")
   libffi.arch = RbConfig::CONFIG['host']
   if $mswin
+    unless find_executable(as = /x64/ =~ libffi.arch ? "ml64" : "ml")
+      raise "missing #{as} command."
+    end
     $defs << "-DFFI_BUILDING"
     libffi_config = "#{relative_from($srcdir, '..')}/win32/libffi-config.rb"
     config = CONFIG.merge("top_srcdir" => $top_srcdir)

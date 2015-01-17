@@ -486,6 +486,7 @@ distclean-local:: clean-local
 	$(Q)$(RM) $(MKFILES) yasmdata.rb *.inc $(arch)-fake.rb
 	$(Q)$(RM) config.cache config.status config.status.lineno
 	$(Q)$(RM) *~ *.bak *.stackdump core *.core gmon.out $(PREP)
+	$(Q)$(RMALL) $(srcdir)/autom4te.cache
 distclean-ext:: PHONY
 distclean-golf: clean-golf
 distclean-rdoc: PHONY
@@ -497,7 +498,9 @@ distclean-platform: clean-platform
 realclean:: realclean-ext realclean-local realclean-enc realclean-golf realclean-extout
 realclean-local:: distclean-local
 	$(Q)$(RM) parse.c parse.h lex.c newline.c $(PRELUDES) revision.h
+	$(Q)$(RM) id.c id.h probes.dmyh
 	$(Q)$(CHDIR) $(srcdir) && $(exec) $(RM) parse.c parse.h lex.c newline.c $(PRELUDES) revision.h
+	$(Q)$(CHDIR) $(srcdir) && $(exec) $(RM) id.c id.h probes.dmyh
 	$(Q)$(CHDIR) $(srcdir) && $(exec) $(RM) configure tool/config.guess tool/config.sub gems/*.gem
 realclean-ext:: PHONY
 realclean-golf: distclean-golf
@@ -921,6 +924,14 @@ update-gems: PHONY
 	    -e 'File.unlink(*(old-[gem]))' \
 	    bundled_gems
 
+extract-gems: PHONY
+	$(ECHO) Extracting bundled gem files...
+	$(Q) $(RUNRUBY) -C "$(srcdir)/gems" \
+	    -I../tool -rgem-unpack -answ \
+	    -e 'gem, ver = *$$F' \
+	    -e 'Gem.unpack("#{gem}-#{ver}.gem")' \
+	    bundled_gems
+
 UPDATE_LIBRARIES = no
 
 ### set the following environment variable or uncomment the line if
@@ -969,6 +980,9 @@ extract-extlibs:
 
 clean-extlibs:
 	$(Q) $(RMALL) $(srcdir)/.downloaded-cache
+
+clean-gems:
+	$(Q) $(RM) gems/*.gem
 
 CLEAN_CACHE = clean-extlibs
 
@@ -2209,6 +2223,8 @@ transcode.$(OBJEXT): {$(VPATH)}transcode.c
 transcode.$(OBJEXT): {$(VPATH)}transcode_data.h
 unicode.$(OBJEXT): $(hdrdir)/ruby/ruby.h
 unicode.$(OBJEXT): {$(VPATH)}config.h
+unicode.$(OBJEXT): {$(VPATH)}enc/unicode/casefold.h
+unicode.$(OBJEXT): {$(VPATH)}enc/unicode/name2ctype.h
 unicode.$(OBJEXT): {$(VPATH)}defines.h
 unicode.$(OBJEXT): {$(VPATH)}intern.h
 unicode.$(OBJEXT): {$(VPATH)}missing.h
@@ -2218,8 +2234,6 @@ unicode.$(OBJEXT): {$(VPATH)}regint.h
 unicode.$(OBJEXT): {$(VPATH)}st.h
 unicode.$(OBJEXT): {$(VPATH)}subst.h
 unicode.$(OBJEXT): {$(VPATH)}unicode.c
-unicode.$(OBJEXT): {$(VPATH)}unicode/casefold.h
-unicode.$(OBJEXT): {$(VPATH)}unicode/name2ctype.h
 us_ascii.$(OBJEXT): {$(VPATH)}config.h
 us_ascii.$(OBJEXT): {$(VPATH)}defines.h
 us_ascii.$(OBJEXT): {$(VPATH)}missing.h

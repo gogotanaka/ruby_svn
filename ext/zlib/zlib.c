@@ -3,7 +3,7 @@
  *
  *   Copyright (C) UENO Katsuhiro 2000-2003
  *
- * $Id: zlib.c 47791 2014-10-04 20:56:10Z normal $
+ * $Id: zlib.c 49202 2015-01-10 03:57:17Z hsbt $
  */
 
 #include <ruby.h>
@@ -465,7 +465,7 @@ rb_zlib_adler32_combine(VALUE klass, VALUE adler1, VALUE adler2, VALUE len2)
 /*
  * Document-method: Zlib.crc32
  *
- * call-seq: Zlib.crc32(string, adler)
+ * call-seq: Zlib.crc32(string, crc)
  *
  * Calculates CRC checksum for +string+, and returns updated value of +crc+. If
  * +string+ is omitted, it returns the CRC initial value. If +crc+ is omitted, it

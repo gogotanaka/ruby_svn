@@ -5,6 +5,7 @@ require 'digest/md5'
 require 'digest/sha1'
 require 'digest/sha2'
 require 'fileutils'
+require 'shellwords'
 require 'tmpdir'
 require File.expand_path("../vcs", __FILE__)
 STDOUT.sync = true
@@ -91,7 +92,7 @@ $digests ||= DIGESTS
 $patch_file &&= File.expand_path($patch_file)
 path = ENV["PATH"].split(File::PATH_SEPARATOR)
 %w[YACC BASERUBY RUBY MV MINIRUBY].each do |var|
-  cmd = ENV[var]
+  cmd, = ENV[var].shellsplit
   unless path.any? {|dir|
       file = File.expand_path(cmd, dir)
       File.file?(file) and File.executable?(file)
@@ -244,6 +245,8 @@ def package(vcs, rev, destdir, tmp = nil)
     File.open(clean.add("cross.rb"), "w") do |f|
       f.puts "Object.__send__(:remove_const, :CROSS_COMPILING) if defined?(CROSS_COMPILING)"
       f.puts "CROSS_COMPILING=true"
+      f.puts "Object.__send__(:remove_const, :RUBY_PLATFORM)"
+      f.puts "RUBY_PLATFORM='none'"
     end
     unless File.exist?("configure")
       print "creating configure..."
@@ -277,6 +280,8 @@ def package(vcs, rev, destdir, tmp = nil)
         f.puts "s,@RM@,|#_!!_#|rm -f,g"
         f.puts "s,@CP@,|#_!!_#|cp,g"
         f.puts "s,@rubyarchdir@,|#_!!_#|,g"
+        f.puts "s,@rubylibprefix@,|#_!!_#|,g"
+        f.puts "s,@ruby_version@,|#_!!_#|,g"
       }
       FileUtils.mkpath(hdrdir = "#{extout}/include/ruby")
       File.open("#{hdrdir}/config.h", "w") {}
@@ -298,6 +303,7 @@ def package(vcs, rev, destdir, tmp = nil)
       IO.popen(cmd, "w") do |f|
         f.puts mk
         f.puts "after-update::", "clean-cache $(CLEAN_CACHE): after-update", "prereq: clean-cache $(CLEAN_CACHE)"
+        f.puts "extract-gems:", "after-update:: extract-gems"
       end
       clean.push("rbconfig.rb", ".rbconfig.time", "enc.mk")
       print "prerequisites"

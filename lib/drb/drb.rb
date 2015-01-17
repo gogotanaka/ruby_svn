@@ -1470,7 +1470,7 @@ module DRb
         if @protocol.respond_to? :shutdown
           @protocol.shutdown
         else
-          @thread.kill # xxx: Thread#kill
+          [@thread, *@grp.list].each {|thread| thread.kill} # xxx: Thread#kill
         end
         @thread.join
       end
