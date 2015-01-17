@@ -1,0 +1,27 @@
+From 6688bae799f4a444c723f5f4225b4bd94769763c Mon Sep 17 00:00:00 2001
+From: gogotanaka <mail@tanakakazuki.com>
+Date: Fri, 9 Jan 2015 17:07:45 -0800
+Subject: [PATCH 3/4] Update NEWS for set#power
+To: https://bugs.ruby-lang.org/
+
+---
+ NEWS | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/NEWS b/NEWS
+index c8ef0cf..b9d9203 100644
+--- a/NEWS
++++ b/NEWS
+@@ -19,6 +19,10 @@ with all sufficient information, see the ChangeLog file.
+
+ === Stdlib updates (outstanding ones only)
+
++* lib/set.rb
++  * New methods:
++    * Set#power returns set of all subsets of +self+.
++
+ === Stdlib compatibility issues (excluding feature bug fixes)
+
+ * lib/webrick/utils.rb
+--
+gogotanaka

@@ -1,0 +1,31 @@
+From 3bfea6732b909f6b3d36e4f2b558bb8db490fd8d Mon Sep 17 00:00:00 2001
+From: gogotanaka <mail@tanakakazuki.com>
+Date: Fri, 9 Jan 2015 17:07:33 -0800
+Subject: [PATCH 2/4] Add test for set#power
+To: https://bugs.ruby-lang.org/
+
+---
+ test/test_set.rb | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/test/test_set.rb b/test/test_set.rb
+index 961578b..a9098e9 100644
+--- a/test/test_set.rb
++++ b/test/test_set.rb
+@@ -570,6 +570,14 @@ class TC_Set < Test::Unit::TestCase
+     }
+   end
+
++  def test_power
++    assert_equal(Set[1, 2].power, Set[Set[], Set[1], Set[2], Set[1, 2]])
++    assert_equal(
++      Set[1, 2, 3].power,
++      Set[Set[], Set[1], Set[2], Set[3], Set[1, 2], Set[2, 3], Set[3, 1], Set[1, 2, 3]]
++    )
++  end
++
+   def test_taintness
+     orig = set = Set[1,2,3]
+     assert_equal false, set.tainted?
+--
+gogotanaka

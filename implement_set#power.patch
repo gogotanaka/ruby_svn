@@ -1,0 +1,39 @@
+From d67ed5226a7f96bdb69f6718f389790c1735230e Mon Sep 17 00:00:00 2001
+From: gogotanaka <mail@tanakakazuki.com>
+Date: Fri, 9 Jan 2015 17:07:18 -0800
+Subject: [PATCH 1/4] Implement set#power
+To: https://bugs.ruby-lang.org/
+
+---
+ lib/set.rb | 16 ++++++++++++++++
+ 1 file changed, 16 insertions(+)
+
+diff --git a/lib/set.rb b/lib/set.rb
+index d1ea6d8..f3c0358 100644
+--- a/lib/set.rb
++++ b/lib/set.rb
+@@ -513,6 +513,22 @@ class Set
+     end
+   end
+
++  # Returns set of all subsets of +self+.
++  #
++  # e.g.:
++  #
++  #   require 'set'
++  #   set = Set[1, 2].power
++  #   p set     # => #<Set: {#<Set: {}>,
++  #             #            #<Set: {1}>,
++  #             #            #<Set: {2}>,
++  #             #            #<Set: {1, 2}>}>
++  def power
++    (0 .. 2 ** length - 1).map { |n|
++      select.with_index { |_, i| (n >> i) & 1 == 1 }.to_set
++    }.to_set
++  end
++
+   InspectKey = :__inspect_key__         # :nodoc:
+
+   # Returns a string containing a human-readable representation of the
+--
+gogotanaka
